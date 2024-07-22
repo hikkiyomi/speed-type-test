@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+
+	stt "github.com/hikkiyomi/speed-type-test/internal"
 )
 
 const (
@@ -23,7 +25,9 @@ var rootCmd = &cobra.Command{
 		}
 		defer f.Close()
 
-		if _, err := tea.NewProgram().Run(); err != nil {
+		quote := "somebody once told me"
+
+		if _, err := tea.NewProgram(stt.NewModel(quote)).Run(); err != nil {
 			log.Fatal(err)
 		}
 	},
