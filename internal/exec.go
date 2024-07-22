@@ -95,6 +95,11 @@ func (m model) View() string {
 
 	for i, c := range m.quote {
 		style := styleMapping[m.statuses[i]]
+
+		if m.current == i {
+			style = style.Underline(true)
+		}
+
 		styledRunes = append(styledRunes, style.Render(string(c)))
 	}
 
