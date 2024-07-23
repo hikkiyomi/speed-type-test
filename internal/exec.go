@@ -168,11 +168,6 @@ func (m model) helpView() string {
 	})
 }
 
-func (m model) isTestEnded() bool {
-	return m.timer.Timeout != time.Duration(m.initialTimeout)*time.Second &&
-		!m.timer.Running()
-}
-
 type testStats struct {
 	correctWords int
 	correctChars int
@@ -225,14 +220,15 @@ func (m model) getTestStats() testStats {
 }
 
 func (m model) getTestResult() string {
-	if !m.isTestEnded() {
-		return ""
-	}
-
 	testStats := m.getTestStats()
 	timePassed := m.initialTimeout - int(m.timer.Timeout/time.Second)
-	avgWpm := int(float64(testStats.correctWords) / float64(timePassed) * 60)
-	avgCpm := int(float64(testStats.correctChars) / float64(timePassed) * 60)
+	avgWpm := 0
+	avgCpm := 0
+
+	if timePassed > 0 {
+		avgWpm = int(float64(testStats.correctWords) / float64(timePassed) * 60)
+		avgCpm = int(float64(testStats.correctChars) / float64(timePassed) * 60)
+	}
 
 	return fmt.Sprintf("%v wpm, %v cpm", avgWpm, avgCpm)
 }
@@ -290,6 +286,7 @@ func (m model) View() string {
 
 	footer := lipgloss.JoinVertical(
 		lipgloss.Top,
+		"",
 		m.getTestResult(),
 		m.helpView(),
 	)
