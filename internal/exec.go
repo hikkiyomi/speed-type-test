@@ -1,6 +1,9 @@
 package internal
 
 import (
+	"time"
+
+	"github.com/charmbracelet/bubbles/timer"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -18,12 +21,17 @@ type model struct {
 	current  int
 	isTyping bool
 	statuses []status
+	timer    timer.Model
 }
 
-func NewModel(quote string) model {
+func NewModel(quote string, timeout int) model {
 	statuses := make([]status, len(quote))
 
-	return model{quote: quote, statuses: statuses}
+	return model{
+		quote:    quote,
+		statuses: statuses,
+		timer:    timer.NewWithInterval(time.Duration(timeout)*time.Second, time.Millisecond),
+	}
 }
 
 func (m model) Init() tea.Cmd {
@@ -62,6 +70,13 @@ func (m *model) acceptInput(input string) {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case timer.TickMsg:
+		var cmd tea.Cmd
+		m.timer, cmd = m.timer.Update(msg)
+
+		return m, cmd
+	case timer.TimeoutMsg:
+		return m, tea.Quit
 	case tea.KeyMsg:
 		input := msg.String()
 
@@ -72,6 +87,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.isTyping {
 				m.isTyping = true
 			}
+
+			return m, m.timer.Init()
 		case "backspace":
 			if !m.isTyping {
 				break
@@ -103,8 +120,12 @@ func (m model) View() string {
 		styledRunes = append(styledRunes, style.Render(string(c)))
 	}
 
-	return lipgloss.JoinHorizontal(
+	return lipgloss.JoinVertical(
 		lipgloss.Left,
-		styledRunes...,
+		m.timer.View(),
+		lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			styledRunes...,
+		),
 	)
 }
