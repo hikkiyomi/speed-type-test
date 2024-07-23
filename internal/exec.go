@@ -17,6 +17,7 @@ const (
 	STATUS_PENDING status = 0
 	STATUS_CORRECT status = 1
 	STATUS_WRONG   status = 2
+	WRAP_WORDS     int    = 5
 )
 
 type keymap struct {
@@ -237,7 +238,9 @@ func (m model) getTestResult() string {
 }
 
 func (m model) View() string {
-	styledRunes := make([]string, 0)
+	styledRunes := make([][]string, 0)
+	currentRow := make([]string, 0)
+	countWords := 0
 
 	for i, c := range m.quote {
 		style := styleMapping[m.statuses[i]]
@@ -246,21 +249,47 @@ func (m model) View() string {
 			style = style.Underline(true)
 		}
 
-		styledRunes = append(styledRunes, style.Render(string(c)))
+		currentRow = append(currentRow, style.Render(string(c)))
+
+		if c == ' ' {
+			countWords++
+
+			if countWords == WRAP_WORDS {
+				styledRunes = append(styledRunes, currentRow)
+				currentRow = make([]string, 0)
+				countWords = 0
+			}
+		}
+	}
+
+	if len(currentRow) > 0 {
+		styledRunes = append(styledRunes, currentRow)
 	}
 
 	header := lipgloss.JoinHorizontal(
-		lipgloss.Top,
+		lipgloss.Left,
 		m.timer.View(),
 	)
 
-	mainPart := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		styledRunes...,
-	)
+	mainPart := func() string {
+		result := ""
+
+		for _, line := range styledRunes {
+			result = lipgloss.JoinVertical(
+				lipgloss.Top,
+				result,
+				lipgloss.JoinHorizontal(
+					lipgloss.Left,
+					line...,
+				),
+			)
+		}
+
+		return result
+	}()
 
 	footer := lipgloss.JoinVertical(
-		lipgloss.Left,
+		lipgloss.Top,
 		m.getTestResult(),
 		m.helpView(),
 	)
