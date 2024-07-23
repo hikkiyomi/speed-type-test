@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -150,6 +151,67 @@ func (m model) helpView() string {
 	})
 }
 
+func (m model) isTestEnded() bool {
+	return m.timer.Timeout != time.Duration(m.initialTimeout)*time.Second &&
+		!m.timer.Running()
+}
+
+type testStats struct {
+	correctWords int
+	correctChars int
+}
+
+func (m model) getTestStats() testStats {
+	correctWords := func() int {
+		result := 0
+
+		for i := 0; i < len(m.quote); i++ {
+			j := i
+			isCorrect := true
+
+			for j+1 < len(m.quote) && m.quote[j] != ' ' {
+				isCorrect = isCorrect && (m.statuses[j] == STATUS_CORRECT)
+				j++
+			}
+
+			if isCorrect {
+				result++
+			}
+
+			i = j
+		}
+
+		return result
+	}()
+
+	correctChars := func() int {
+		result := 0
+
+		for i := range m.statuses {
+			if m.statuses[i] == STATUS_CORRECT {
+				result++
+			}
+		}
+
+		return result
+	}()
+
+	return testStats{correctWords: correctWords, correctChars: correctChars}
+}
+
+func (m model) getTestResult() string {
+	if !m.isTestEnded() {
+		return ""
+	}
+
+	testStats := m.getTestStats()
+	timePassed := m.initialTimeout - int(m.timer.Timeout/time.Second)
+	avgWpm := int(float64(testStats.correctWords) / float64(timePassed) * 60)
+	avgCpm := int(float64(testStats.correctChars) / float64(timePassed) * 60)
+
+	return fmt.Sprintf("%v wpm, %v cpm", avgWpm, avgCpm)
+}
+
 func (m model) View() string {
 	styledRunes := make([]string, 0)
 
@@ -163,6 +225,22 @@ func (m model) View() string {
 		styledRunes = append(styledRunes, style.Render(string(c)))
 	}
 
+	header := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		m.timer.View(),
+	)
+
+	mainPart := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		styledRunes...,
+	)
+
+	footer := lipgloss.JoinVertical(
+		lipgloss.Left,
+		m.getTestResult(),
+		m.helpView(),
+	)
+
 	return lipgloss.Place(
 		m.sizes.width,
 		m.sizes.height,
@@ -170,12 +248,9 @@ func (m model) View() string {
 		lipgloss.Center,
 		lipgloss.JoinVertical(
 			lipgloss.Left,
-			m.timer.View(),
-			lipgloss.JoinHorizontal(
-				lipgloss.Left,
-				styledRunes...,
-			),
-			m.helpView(),
+			header,
+			mainPart,
+			footer,
 		),
 	)
 }
