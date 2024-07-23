@@ -60,8 +60,8 @@ func NewModel(quote string, timeout int) model {
 				key.WithHelp("ctrl+c", "end"),
 			),
 			quit: key.NewBinding(
-				key.WithKeys("q"),
-				key.WithHelp("q", "quit (works only when timer is stopped)"),
+				key.WithKeys("ctrl+c"),
+				key.WithHelp("ctrl+c", "quit the program (when timer is stopped)"),
 			),
 		},
 		help: help.New(),
@@ -86,9 +86,11 @@ func checkInput(input string) bool {
 			input[0] == ' ')
 }
 
-func (m *model) acceptInput(input string) {
+type testEndingMsg int
+
+func (m *model) acceptInput(input string) tea.Cmd {
 	if !checkInput(input) {
-		return
+		return nil
 	}
 
 	inputCharacter := input[0]
@@ -100,6 +102,14 @@ func (m *model) acceptInput(input string) {
 	}
 
 	m.current++
+
+	if m.current == len(m.quote) {
+		return func() tea.Msg {
+			return testEndingMsg(1)
+		}
+	}
+
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -111,8 +121,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.timer, cmd = m.timer.Update(msg)
 		return m, cmd
-	case timer.TimeoutMsg:
+	case timer.TimeoutMsg, testEndingMsg:
 		m.isTyping = false
+		return m, m.timer.Stop()
 	case tea.KeyMsg:
 		input := msg.String()
 
@@ -136,7 +147,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 
-			m.acceptInput(input)
+			cmd := m.acceptInput(input)
+			return m, cmd
 		}
 	}
 
