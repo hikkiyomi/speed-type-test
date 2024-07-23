@@ -3,6 +3,8 @@ package internal
 import (
 	"time"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/timer"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -16,12 +18,25 @@ const (
 	STATUS_WRONG   status = 2
 )
 
+type keymap struct {
+	start key.Binding
+	quit  key.Binding
+}
+
+type windowSizes struct {
+	width  int
+	height int
+}
+
 type model struct {
 	quote    string
 	current  int
 	isTyping bool
 	statuses []status
 	timer    timer.Model
+	keymap   keymap
+	help     help.Model
+	sizes    windowSizes
 }
 
 func NewModel(quote string, timeout int) model {
@@ -31,6 +46,17 @@ func NewModel(quote string, timeout int) model {
 		quote:    quote,
 		statuses: statuses,
 		timer:    timer.NewWithInterval(time.Duration(timeout)*time.Second, time.Millisecond),
+		keymap: keymap{
+			start: key.NewBinding(
+				key.WithKeys("enter"),
+				key.WithHelp("enter", "start"),
+			),
+			quit: key.NewBinding(
+				key.WithKeys("ctrl+c"),
+				key.WithHelp("ctrl+c", "end"),
+			),
+		},
+		help: help.New(),
 	}
 }
 
@@ -70,6 +96,9 @@ func (m *model) acceptInput(input string) {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.sizes.width = msg.Width
+		m.sizes.height = msg.Height
 	case timer.TickMsg:
 		var cmd tea.Cmd
 		m.timer, cmd = m.timer.Update(msg)
@@ -80,16 +109,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		input := msg.String()
 
-		switch input {
-		case "ctrl+c":
+		switch {
+		case key.Matches(msg, m.keymap.quit):
 			return m, tea.Quit
-		case "enter":
+		case key.Matches(msg, m.keymap.start):
 			if !m.isTyping {
 				m.isTyping = true
 			}
 
 			return m, m.timer.Init()
-		case "backspace":
+		case input == "backspace":
 			if !m.isTyping {
 				break
 			}
@@ -107,6 +136,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) helpView() string {
+	return "\n" + m.help.ShortHelpView([]key.Binding{
+		m.keymap.start,
+		m.keymap.quit,
+	})
+}
+
 func (m model) View() string {
 	styledRunes := make([]string, 0)
 
@@ -120,12 +156,19 @@ func (m model) View() string {
 		styledRunes = append(styledRunes, style.Render(string(c)))
 	}
 
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		m.timer.View(),
-		lipgloss.JoinHorizontal(
+	return lipgloss.Place(
+		m.sizes.width,
+		m.sizes.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		lipgloss.JoinVertical(
 			lipgloss.Left,
-			styledRunes...,
+			m.timer.View(),
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				styledRunes...,
+			),
+			m.helpView(),
 		),
 	)
 }
