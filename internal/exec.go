@@ -18,7 +18,6 @@ const (
 	STATUS_PENDING status = 0
 	STATUS_CORRECT status = 1
 	STATUS_WRONG   status = 2
-	WRAP_WORDS     int    = 10
 )
 
 type keymap struct {
@@ -42,13 +41,22 @@ type model struct {
 	keymap         keymap
 	help           help.Model
 	sizes          windowSizes
+	wrapWords      int
 }
 
-func NewModel(quote string, timeout int) model {
+func NewModel(quote string, timeout int, wrapWords int) model {
 	statuses := make([]status, len(quote))
 
 	if len(quote) == 0 {
-		log.Fatal("there should be at least one character in test")
+		log.Fatal("There should be at least one character in test")
+	}
+
+	if timeout < 0 {
+		log.Fatal("Timeout should be at least zero")
+	}
+
+	if wrapWords <= 0 {
+		log.Fatal("The number of words in one line should be more than zero")
 	}
 
 	return model{
@@ -69,7 +77,8 @@ func NewModel(quote string, timeout int) model {
 				key.WithHelp("ctrl+c", "quit the program (when timer is stopped)"),
 			),
 		},
-		help: help.New(),
+		help:      help.New(),
+		wrapWords: wrapWords,
 	}
 }
 
@@ -258,7 +267,7 @@ func (m model) View() string {
 		if c == ' ' {
 			countWords++
 
-			if countWords == WRAP_WORDS {
+			if countWords == m.wrapWords {
 				styledRunes = append(styledRunes, currentRow)
 				currentRow = make([]string, 0)
 				countWords = 0

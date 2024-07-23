@@ -29,10 +29,15 @@ var rootCmd = &cobra.Command{
 
 		timeoutInSeconds, err := cmd.Flags().GetInt("timeout")
 		if err != nil {
-			log.Fatal("Couldn't get the timeout flag.")
+			log.Fatal("Couldn't get the 'timeout' flag.")
 		}
 
-		p := tea.NewProgram(stt.NewModel(quote, timeoutInSeconds), tea.WithAltScreen())
+		wrapWords, err := cmd.Flags().GetInt("wrap")
+		if err != nil {
+			log.Fatal("Couldn't get the 'wrap' flag.")
+		}
+
+		p := tea.NewProgram(stt.NewModel(quote, timeoutInSeconds, wrapWords), tea.WithAltScreen())
 
 		if _, err := p.Run(); err != nil {
 			log.Fatal(err)
@@ -48,5 +53,6 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().IntP("timeout", "t", 30, "Specifies the timeout for timer. Put 0 for infinite amount of time.")
+	rootCmd.Flags().IntP("timeout", "t", 30, "specifies the timeout for timer. Put 0 for infinite amount of time.")
+	rootCmd.Flags().IntP("wrap", "w", 10, "specifies the number of words in one line.")
 }
