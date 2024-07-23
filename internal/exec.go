@@ -103,6 +103,10 @@ func (m *model) acceptInput(input string) tea.Cmd {
 
 	m.current++
 
+	for m.current < len(m.quote) && m.quote[m.current] == ' ' {
+		m.current++
+	}
+
 	if m.current == len(m.quote) {
 		return func() tea.Msg {
 			return testEndingMsg(1)
@@ -178,6 +182,10 @@ func (m model) getTestStats() testStats {
 		result := 0
 
 		for i := 0; i < len(m.quote); i++ {
+			if m.quote[i] == ' ' {
+				continue
+			}
+
 			j := i
 			isCorrect := true
 
@@ -199,7 +207,11 @@ func (m model) getTestStats() testStats {
 	correctChars := func() int {
 		result := 0
 
-		for i := range m.statuses {
+		for i, c := range m.quote {
+			if c == ' ' {
+				continue
+			}
+
 			if m.statuses[i] == STATUS_CORRECT {
 				result++
 			}
