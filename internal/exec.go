@@ -20,6 +20,7 @@ const (
 
 type keymap struct {
 	start key.Binding
+	end   key.Binding
 	quit  key.Binding
 }
 
@@ -29,31 +30,37 @@ type windowSizes struct {
 }
 
 type model struct {
-	quote    string
-	current  int
-	isTyping bool
-	statuses []status
-	timer    timer.Model
-	keymap   keymap
-	help     help.Model
-	sizes    windowSizes
+	quote          string
+	current        int
+	isTyping       bool
+	statuses       []status
+	initialTimeout int
+	timer          timer.Model
+	keymap         keymap
+	help           help.Model
+	sizes          windowSizes
 }
 
 func NewModel(quote string, timeout int) model {
 	statuses := make([]status, len(quote))
 
 	return model{
-		quote:    quote,
-		statuses: statuses,
-		timer:    timer.NewWithInterval(time.Duration(timeout)*time.Second, time.Millisecond),
+		quote:          quote,
+		statuses:       statuses,
+		initialTimeout: timeout,
+		timer:          timer.NewWithInterval(time.Duration(timeout)*time.Second, time.Millisecond),
 		keymap: keymap{
 			start: key.NewBinding(
 				key.WithKeys("enter"),
 				key.WithHelp("enter", "start"),
 			),
-			quit: key.NewBinding(
+			end: key.NewBinding(
 				key.WithKeys("ctrl+c"),
 				key.WithHelp("ctrl+c", "end"),
+			),
+			quit: key.NewBinding(
+				key.WithKeys("q"),
+				key.WithHelp("q", "quit (works only when timer is stopped)"),
 			),
 		},
 		help: help.New(),
@@ -99,25 +106,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.sizes.width = msg.Width
 		m.sizes.height = msg.Height
-	case timer.TickMsg:
+	case timer.TickMsg, timer.StartStopMsg:
 		var cmd tea.Cmd
 		m.timer, cmd = m.timer.Update(msg)
-
 		return m, cmd
 	case timer.TimeoutMsg:
-		return m, tea.Quit
+		m.isTyping = false
 	case tea.KeyMsg:
 		input := msg.String()
 
 		switch {
-		case key.Matches(msg, m.keymap.quit):
+		case key.Matches(msg, m.keymap.quit) && !m.isTyping:
 			return m, tea.Quit
-		case key.Matches(msg, m.keymap.start):
-			if !m.isTyping {
-				m.isTyping = true
-			}
-
+		case key.Matches(msg, m.keymap.start) && m.timer.Timeout == time.Duration(m.initialTimeout)*time.Second:
+			m.isTyping = true
 			return m, m.timer.Init()
+		case key.Matches(msg, m.keymap.end):
+			m.isTyping = false
+			return m, m.timer.Stop()
 		case input == "backspace":
 			if !m.isTyping {
 				break
@@ -139,6 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) helpView() string {
 	return "\n" + m.help.ShortHelpView([]key.Binding{
 		m.keymap.start,
+		m.keymap.end,
 		m.keymap.quit,
 	})
 }

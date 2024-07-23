@@ -26,7 +26,7 @@ var rootCmd = &cobra.Command{
 		defer f.Close()
 
 		quote := "somebody once told me"
-		timeoutInSeconds := 30
+		timeoutInSeconds := 5
 		p := tea.NewProgram(stt.NewModel(quote, timeoutInSeconds), tea.WithAltScreen())
 
 		if _, err := p.Run(); err != nil {
