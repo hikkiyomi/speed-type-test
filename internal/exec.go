@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -17,7 +18,7 @@ const (
 	STATUS_PENDING status = 0
 	STATUS_CORRECT status = 1
 	STATUS_WRONG   status = 2
-	WRAP_WORDS     int    = 5
+	WRAP_WORDS     int    = 10
 )
 
 type keymap struct {
@@ -46,6 +47,10 @@ type model struct {
 func NewModel(quote string, timeout int) model {
 	statuses := make([]status, len(quote))
 
+	if len(quote) == 0 {
+		log.Fatal("there should be at least one character in test")
+	}
+
 	return model{
 		quote:          quote,
 		statuses:       statuses,
@@ -53,8 +58,7 @@ func NewModel(quote string, timeout int) model {
 		timer:          timer.NewWithInterval(time.Duration(timeout)*time.Second, time.Millisecond),
 		keymap: keymap{
 			start: key.NewBinding(
-				key.WithKeys("enter"),
-				key.WithHelp("enter", "start"),
+				key.WithKeys(string(quote[0])),
 			),
 			end: key.NewBinding(
 				key.WithKeys("ctrl+c"),
@@ -117,6 +121,10 @@ func (m *model) acceptInput(input string) tea.Cmd {
 	return nil
 }
 
+func (m model) testStarted() bool {
+	return m.timer.Timeout != time.Duration(m.initialTimeout)*time.Second
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -135,9 +143,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keymap.quit) && !m.isTyping:
 			return m, tea.Quit
-		case key.Matches(msg, m.keymap.start) && m.timer.Timeout == time.Duration(m.initialTimeout)*time.Second:
+		case key.Matches(msg, m.keymap.start) && !m.testStarted():
 			m.isTyping = true
-			return m, m.timer.Init()
+			cmd := m.acceptInput(input)
+			return m, tea.Batch(m.timer.Init(), cmd)
 		case key.Matches(msg, m.keymap.end):
 			m.isTyping = false
 			return m, m.timer.Stop()
@@ -162,7 +171,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) helpView() string {
 	return "\n" + m.help.ShortHelpView([]key.Binding{
-		m.keymap.start,
 		m.keymap.end,
 		m.keymap.quit,
 	})
@@ -225,7 +233,7 @@ func (m model) getTestResult() string {
 	avgWpm := 0
 	avgCpm := 0
 
-	if timePassed > 0 {
+	if m.testStarted() {
 		avgWpm = int(float64(testStats.correctWords) / float64(timePassed) * 60)
 		avgCpm = int(float64(testStats.correctChars) / float64(timePassed) * 60)
 	}
@@ -262,10 +270,19 @@ func (m model) View() string {
 		styledRunes = append(styledRunes, currentRow)
 	}
 
-	header := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		m.timer.View(),
-	)
+	header := func() string {
+		addition := ""
+
+		if !m.testStarted() {
+			addition = " - start typing to start the test"
+		}
+
+		return lipgloss.JoinHorizontal(
+			lipgloss.Right,
+			m.timer.View(),
+			addition,
+		)
+	}()
 
 	mainPart := func() string {
 		result := ""
