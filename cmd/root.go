@@ -26,7 +26,12 @@ var rootCmd = &cobra.Command{
 		defer f.Close()
 
 		quote := "somebody once told me hello everybody this is my program for speed testing"
-		timeoutInSeconds := 30
+
+		timeoutInSeconds, err := cmd.Flags().GetInt("timeout")
+		if err != nil {
+			log.Fatal("Couldn't get the timeout flag.")
+		}
+
 		p := tea.NewProgram(stt.NewModel(quote, timeoutInSeconds), tea.WithAltScreen())
 
 		if _, err := p.Run(); err != nil {
@@ -43,5 +48,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().IntP("timeout", "t", 30, "Specifies the timeout for timer. Put 0 for infinite amount of time.")
 }
