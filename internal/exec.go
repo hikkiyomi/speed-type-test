@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/stopwatch"
 	"github.com/charmbracelet/bubbles/timer"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -32,16 +33,15 @@ type windowSizes struct {
 }
 
 type model struct {
-	quote          string
-	current        int
-	isTyping       bool
-	statuses       []status
-	initialTimeout int
-	timer          timer.Model
-	keymap         keymap
-	help           help.Model
-	sizes          windowSizes
-	wrapWords      int
+	quote      string
+	current    int
+	isTyping   bool
+	statuses   []status
+	timeModule TimeModule
+	keymap     keymap
+	help       help.Model
+	sizes      windowSizes
+	wrapWords  int
 }
 
 func NewModel(quote string, timeout int, wrapWords int) model {
@@ -59,11 +59,23 @@ func NewModel(quote string, timeout int, wrapWords int) model {
 		log.Fatal("The number of words in one line should be more than zero")
 	}
 
+	var timeModule TimeModule
+
+	if timeout == 0 {
+		timeModule = newStopwatch(stopwatch.NewWithInterval(time.Millisecond))
+	} else {
+		timeModule = newTimer(
+			timer.NewWithInterval(
+				time.Duration(timeout)*time.Second, time.Millisecond,
+			),
+			timeout,
+		)
+	}
+
 	return model{
-		quote:          quote,
-		statuses:       statuses,
-		initialTimeout: timeout,
-		timer:          timer.NewWithInterval(time.Duration(timeout)*time.Second, time.Millisecond),
+		quote:      quote,
+		statuses:   statuses,
+		timeModule: timeModule,
 		keymap: keymap{
 			start: key.NewBinding(
 				key.WithKeys(string(quote[0])),
@@ -130,35 +142,27 @@ func (m *model) acceptInput(input string) tea.Cmd {
 	return nil
 }
 
-func (m model) testStarted() bool {
-	return m.timer.Timeout != time.Duration(m.initialTimeout)*time.Second
-}
-
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.sizes.width = msg.Width
 		m.sizes.height = msg.Height
-	case timer.TickMsg, timer.StartStopMsg:
-		var cmd tea.Cmd
-		m.timer, cmd = m.timer.Update(msg)
-		return m, cmd
 	case timer.TimeoutMsg, testEndingMsg:
 		m.isTyping = false
-		return m, m.timer.Stop()
+		return m, m.timeModule.Stop()
 	case tea.KeyMsg:
 		input := msg.String()
 
 		switch {
 		case key.Matches(msg, m.keymap.quit) && !m.isTyping:
 			return m, tea.Quit
-		case key.Matches(msg, m.keymap.start) && !m.testStarted():
+		case key.Matches(msg, m.keymap.start) && !m.timeModule.HasStarted():
 			m.isTyping = true
 			cmd := m.acceptInput(input)
-			return m, tea.Batch(m.timer.Init(), cmd)
+			return m, tea.Batch(m.timeModule.Init(), cmd)
 		case key.Matches(msg, m.keymap.end):
 			m.isTyping = false
-			return m, m.timer.Stop()
+			return m, m.timeModule.Stop()
 		case input == "backspace":
 			if !m.isTyping {
 				break
@@ -175,7 +179,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	var cmd tea.Cmd
+	m.timeModule, cmd = m.timeModule.Update(msg)
+
+	return m, cmd
 }
 
 func (m model) helpView() string {
@@ -238,11 +245,11 @@ func (m model) getTestStats() testStats {
 
 func (m model) getTestResult() string {
 	testStats := m.getTestStats()
-	timePassed := m.initialTimeout - int(m.timer.Timeout/time.Second)
+	timePassed := m.timeModule.GetTimePassed()
 	avgWpm := 0
 	avgCpm := 0
 
-	if m.testStarted() {
+	if timePassed > 0 {
 		avgWpm = int(float64(testStats.correctWords) / float64(timePassed) * 60)
 		avgCpm = int(float64(testStats.correctChars) / float64(timePassed) * 60)
 	}
@@ -282,13 +289,13 @@ func (m model) View() string {
 	header := func() string {
 		addition := ""
 
-		if !m.testStarted() {
+		if !m.timeModule.HasStarted() {
 			addition = " - start typing to start the test"
 		}
 
 		return lipgloss.JoinHorizontal(
 			lipgloss.Right,
-			m.timer.View(),
+			m.timeModule.View(),
 			addition,
 		)
 	}()
