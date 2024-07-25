@@ -33,10 +33,8 @@ type windowSizes struct {
 }
 
 type model struct {
-	quote      string
-	current    int
+	quote      *quote
 	isTyping   bool
-	statuses   []status
 	timeModule TimeModule
 	keymap     keymap
 	help       help.Model
@@ -45,8 +43,6 @@ type model struct {
 }
 
 func NewModel(quote string, timeout int, wrapWords int) model {
-	statuses := make([]status, len(quote))
-
 	if len(quote) == 0 {
 		log.Fatal("There should be at least one character in test")
 	}
@@ -73,8 +69,7 @@ func NewModel(quote string, timeout int, wrapWords int) model {
 	}
 
 	return model{
-		quote:      quote,
-		statuses:   statuses,
+		quote:      newQuote(quote, wrapWords),
 		timeModule: timeModule,
 		keymap: keymap{
 			start: key.NewBinding(
@@ -99,15 +94,8 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m *model) applyBackspace() {
-	if m.current > 0 {
-		m.current--
-		m.statuses[m.current] = STATUS_PENDING
-
-		for m.current > 0 && m.quote[m.current] == ' ' {
-			m.current--
-			m.statuses[m.current] = STATUS_PENDING
-		}
-	}
+	m.quote.Prev()
+	m.quote.GetCurrentChar().Status = STATUS_PENDING
 }
 
 func checkInput(input string) bool {
@@ -126,19 +114,19 @@ func (m *model) acceptInput(input string) tea.Cmd {
 
 	inputCharacter := input[0]
 
-	if m.quote[m.current] == inputCharacter {
-		m.statuses[m.current] = STATUS_CORRECT
+	if m.quote.GetCurrentChar().Value == inputCharacter {
+		m.quote.GetCurrentChar().Status = STATUS_CORRECT
 	} else {
-		m.statuses[m.current] = STATUS_WRONG
+		m.quote.GetCurrentChar().Status = STATUS_WRONG
 	}
 
-	m.current++
+	canMove := m.quote.Next()
 
-	for m.current < len(m.quote) && m.quote[m.current] == ' ' {
-		m.current++
+	for m.quote.GetCurrentChar().Value == ' ' {
+		canMove = m.quote.Next()
 	}
 
-	if m.current == len(m.quote) {
+	if !canMove {
 		return func() tea.Msg {
 			return testEndingMsg(1)
 		}
@@ -206,7 +194,7 @@ func (m model) getTestStats() testStats {
 	correctWords := func() int {
 		result := 0
 
-		for i := 0; i < len(m.quote); i++ {
+		for i := 0; i <= m.current; i++ {
 			if m.quote[i] == ' ' {
 				continue
 			}
@@ -232,8 +220,8 @@ func (m model) getTestStats() testStats {
 	correctChars := func() int {
 		result := 0
 
-		for i, c := range m.quote {
-			if c == ' ' {
+		for i := 0; i <= m.current; i++ {
+			if m.quote[i] == ' ' {
 				continue
 			}
 
@@ -262,7 +250,7 @@ func (m model) getTestResult() string {
 	return fmt.Sprintf("%v wpm, %v cpm", avgWpm, avgCpm)
 }
 
-func getStyledRows(m model) ([][]string, *int) {
+func getStyledRunes(m model) ([][]string, *int) {
 	styledRunes := make([][]string, 0)
 	currentRow := make([]string, 0)
 	countWords := 0
@@ -299,7 +287,7 @@ func getStyledRows(m model) ([][]string, *int) {
 }
 
 func getRenderingRows(m model) [][]string {
-	styledRunes, rowWithCursor := getStyledRows(m)
+	styledRunes, rowWithCursor := getStyledRunes(m)
 	rowsToRender := make([][]string, 0)
 
 	if rowWithCursor != nil {
