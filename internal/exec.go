@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -32,6 +33,11 @@ type windowSizes struct {
 	height int
 }
 
+type testStats struct {
+	correctWords int
+	correctChars int
+}
+
 type model struct {
 	quote      *quote
 	isTyping   bool
@@ -40,6 +46,7 @@ type model struct {
 	help       help.Model
 	sizes      windowSizes
 	wrapWords  int
+	stats      testStats
 }
 
 func NewModel(quote string, timeout int, wrapWords int) model {
@@ -95,6 +102,24 @@ func (m model) Init() tea.Cmd {
 
 func (m *model) applyBackspace() {
 	m.quote.Prev()
+
+	if m.quote.GetCurrentChar().Status == STATUS_CORRECT {
+		m.stats.correctChars--
+	}
+
+	isWordCorrect := true
+
+	for _, c := range m.quote.Words[m.quote.Row][m.quote.WordPos] {
+		if c.Status != STATUS_CORRECT {
+			isWordCorrect = false
+			break
+		}
+	}
+
+	if isWordCorrect {
+		m.stats.correctWords--
+	}
+
 	m.quote.GetCurrentChar().Status = STATUS_PENDING
 }
 
@@ -116,15 +141,25 @@ func (m *model) acceptInput(input string) tea.Cmd {
 
 	if m.quote.GetCurrentChar().Value == inputCharacter {
 		m.quote.GetCurrentChar().Status = STATUS_CORRECT
+
+		m.stats.correctChars++
+		isWordCorrect := true
+
+		for _, c := range m.quote.Words[m.quote.Row][m.quote.WordPos] {
+			if c.Status != STATUS_CORRECT {
+				isWordCorrect = false
+				break
+			}
+		}
+
+		if isWordCorrect {
+			m.stats.correctWords++
+		}
 	} else {
 		m.quote.GetCurrentChar().Status = STATUS_WRONG
 	}
 
 	canMove := m.quote.Next()
-
-	for m.quote.GetCurrentChar().Value == ' ' {
-		canMove = m.quote.Next()
-	}
 
 	if !canMove {
 		return func() tea.Msg {
@@ -185,59 +220,8 @@ func (m model) helpView() string {
 	})
 }
 
-type testStats struct {
-	correctWords int
-	correctChars int
-}
-
-func (m model) getTestStats() testStats {
-	correctWords := func() int {
-		result := 0
-
-		for i := 0; i <= m.current; i++ {
-			if m.quote[i] == ' ' {
-				continue
-			}
-
-			j := i
-			isCorrect := true
-
-			for j+1 < len(m.quote) && m.quote[j] != ' ' {
-				isCorrect = isCorrect && (m.statuses[j] == STATUS_CORRECT)
-				j++
-			}
-
-			if isCorrect {
-				result++
-			}
-
-			i = j
-		}
-
-		return result
-	}()
-
-	correctChars := func() int {
-		result := 0
-
-		for i := 0; i <= m.current; i++ {
-			if m.quote[i] == ' ' {
-				continue
-			}
-
-			if m.statuses[i] == STATUS_CORRECT {
-				result++
-			}
-		}
-
-		return result
-	}()
-
-	return testStats{correctWords: correctWords, correctChars: correctChars}
-}
-
 func (m model) getTestResult() string {
-	testStats := m.getTestStats()
+	testStats := m.stats
 	timePassed := m.timeModule.GetTimePassed()
 	avgWpm := 0
 	avgCpm := 0
@@ -250,62 +234,37 @@ func (m model) getTestResult() string {
 	return fmt.Sprintf("%v wpm, %v cpm", avgWpm, avgCpm)
 }
 
-func getStyledRunes(m model) ([][]string, *int) {
-	styledRunes := make([][]string, 0)
-	currentRow := make([]string, 0)
-	countWords := 0
+func getRenderingRows(m model) []string {
+	rowsToRender := make([]string, 3)
 
-	var rowWithCursor *int
+	renderRow := func(row int, underlinedWord *int, underlinedChar *int) string {
+		renderedWords := make([]string, 0)
 
-	for i, c := range m.quote {
-		style := styleMapping[m.statuses[i]]
-
-		if m.current == i {
-			style = style.Underline(true)
-			rowWithCursor = new(int)
-			*rowWithCursor = len(styledRunes)
-		}
-
-		currentRow = append(currentRow, style.Render(string(c)))
-
-		if c == ' ' {
-			countWords++
-
-			if countWords == m.wrapWords {
-				styledRunes = append(styledRunes, currentRow)
-				currentRow = make([]string, 0)
-				countWords = 0
+		for i, w := range m.quote.Words[row] {
+			if underlinedWord != nil && i == *underlinedWord {
+				renderedWords = append(renderedWords, w.Render(underlinedChar))
+			} else {
+				renderedWords = append(renderedWords, w.Render(nil))
 			}
 		}
+
+		return strings.Join(renderedWords, " ")
 	}
 
-	if len(currentRow) > 0 {
-		styledRunes = append(styledRunes, currentRow)
-	}
+	if m.quote.Row == 0 {
+		rowsToRender[0] = renderRow(0, &m.quote.WordPos, &m.quote.Pos)
 
-	return styledRunes, rowWithCursor
-}
-
-func getRenderingRows(m model) [][]string {
-	styledRunes, rowWithCursor := getStyledRunes(m)
-	rowsToRender := make([][]string, 0)
-
-	if rowWithCursor != nil {
-		row := *rowWithCursor
-
-		if row > 0 {
-			rowsToRender = append(rowsToRender, styledRunes[row-1])
-		}
-
-		rowsToRender = append(rowsToRender, styledRunes[row])
-
-		if row+1 < len(styledRunes) {
-			rowsToRender = append(rowsToRender, styledRunes[row+1])
+		for i := 1; i <= 2; i++ {
+			if m.quote.Row+i < len(m.quote.Words) {
+				rowsToRender[i] = renderRow(i, nil, nil)
+			}
 		}
 	} else {
-		for i := 3; i >= 1; i-- {
-			if len(styledRunes)-i >= 0 {
-				rowsToRender = append(rowsToRender, styledRunes[len(styledRunes)-i])
+		rowsToRender[1] = renderRow(m.quote.Row, &m.quote.WordPos, &m.quote.Pos)
+
+		for i := -1; i <= 1; i += 2 {
+			if m.quote.Row+i < len(m.quote.Words) {
+				rowsToRender[1+i] = renderRow(m.quote.Row+i, nil, nil)
 			}
 		}
 	}
@@ -330,20 +289,11 @@ func (m model) View() string {
 
 	mainPart := func() string {
 		rowsToRender := getRenderingRows(m)
-		result := ""
 
-		for _, line := range rowsToRender {
-			result = lipgloss.JoinVertical(
-				lipgloss.Top,
-				result,
-				lipgloss.JoinHorizontal(
-					lipgloss.Left,
-					line...,
-				),
-			)
-		}
-
-		return result
+		return lipgloss.JoinVertical(
+			lipgloss.Top,
+			rowsToRender...,
+		)
 	}()
 
 	footer := lipgloss.JoinVertical(

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/exp/rand"
 )
 
@@ -16,6 +17,34 @@ type char struct {
 }
 
 type word []char
+
+func (w word) GetStyles() []lipgloss.Style {
+	result := make([]lipgloss.Style, 0)
+
+	for _, c := range w {
+		style := styleMapping[c.Status]
+		result = append(result, style)
+	}
+
+	return result
+}
+
+// A function to render word. Pass a pointer to position of underlined character.
+// Use nil pointer for no underlining.
+func (w word) Render(underline *int) string {
+	styles := w.GetStyles()
+	result := ""
+
+	for i, s := range styles {
+		if underline != nil && i == *underline {
+			s = s.Underline(true)
+		}
+
+		result += s.Render(string(w[i].Value))
+	}
+
+	return result
+}
 
 func newWord(flatWord string) word {
 	chars := make([]char, len(flatWord))
