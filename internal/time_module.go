@@ -65,7 +65,10 @@ func newStopwatch(model stopwatch.Model) Stopwatch {
 }
 
 func (s Stopwatch) Init() tea.Cmd {
-	return s.stopwatch.Init()
+	// ??? Somehow stopwatch does not always start if I only init it.
+	// The problem goes away in most cases if I start it right after initializing.
+	// But it seems there are still situations when it just does not wanna start right away.
+	return tea.Batch(s.stopwatch.Init(), s.stopwatch.Start())
 }
 
 func (s Stopwatch) Update(msg tea.Msg) (TimeModule, tea.Cmd) {
@@ -79,7 +82,7 @@ func (s Stopwatch) View() string {
 }
 
 func (s Stopwatch) HasStarted() bool {
-	return s.stopwatch.Elapsed().Nanoseconds() > 0
+	return s.stopwatch.Elapsed().Milliseconds() > 0
 }
 
 func (s Stopwatch) Stop() tea.Cmd {
