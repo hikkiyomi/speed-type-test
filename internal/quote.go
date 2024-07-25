@@ -157,7 +157,7 @@ func GetQuote(path string) string {
 	}
 
 	words = Filter(words, func(w string) bool {
-		return !strings.Contains(w, "'") && len(w) >= 5
+		return !strings.Contains(w, "'") && 5 <= len(w) && len(w) <= 6
 	})
 
 	shuffle(words)
