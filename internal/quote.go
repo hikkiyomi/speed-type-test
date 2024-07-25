@@ -116,10 +116,10 @@ func (q *quote) Prev() bool {
 
 	if q.Pos > 0 {
 		q.Pos--
-	} else if q.WordPos-1 > 0 {
+	} else if q.WordPos > 0 {
 		q.WordPos--
 		q.Pos = len(q.Words[q.Row][q.WordPos]) - 1
-	} else if q.Row-1 > 0 {
+	} else if q.Row > 0 {
 		q.Row--
 		q.WordPos = len(q.Words[q.Row]) - 1
 		q.Pos = len(q.Words[q.Row][q.WordPos]) - 1
