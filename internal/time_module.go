@@ -79,7 +79,7 @@ func (s Stopwatch) View() string {
 }
 
 func (s Stopwatch) HasStarted() bool {
-	return s.stopwatch.Elapsed() > 0
+	return s.stopwatch.Elapsed().Nanoseconds() > 0
 }
 
 func (s Stopwatch) Stop() tea.Cmd {
