@@ -326,8 +326,6 @@ func getRenderingRows(m model) [][]string {
 }
 
 func (m model) View() string {
-	rowsToRender := getRenderingRows(m)
-
 	header := func() string {
 		addition := ""
 
@@ -343,6 +341,7 @@ func (m model) View() string {
 	}()
 
 	mainPart := func() string {
+		rowsToRender := getRenderingRows(m)
 		result := ""
 
 		for _, line := range rowsToRender {
