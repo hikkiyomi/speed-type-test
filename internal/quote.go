@@ -160,6 +160,10 @@ func GetQuote(path string) string {
 		return !strings.Contains(w, "'") && 5 <= len(w) && len(w) <= 6
 	})
 
+	for i := 0; i < len(words); i++ {
+		words[i] = strings.ToLower(words[i])
+	}
+
 	shuffle(words)
 
 	return strings.Join(words, " ")
