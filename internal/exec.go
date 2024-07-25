@@ -102,6 +102,11 @@ func (m *model) applyBackspace() {
 	if m.current > 0 {
 		m.current--
 		m.statuses[m.current] = STATUS_PENDING
+
+		for m.current > 0 && m.quote[m.current] == ' ' {
+			m.current--
+			m.statuses[m.current] = STATUS_PENDING
+		}
 	}
 }
 
