@@ -262,16 +262,20 @@ func (m model) getTestResult() string {
 	return fmt.Sprintf("%v wpm, %v cpm", avgWpm, avgCpm)
 }
 
-func (m model) View() string {
+func getStyledRows(m model) ([][]string, *int) {
 	styledRunes := make([][]string, 0)
 	currentRow := make([]string, 0)
 	countWords := 0
+
+	var rowWithCursor *int
 
 	for i, c := range m.quote {
 		style := styleMapping[m.statuses[i]]
 
 		if m.current == i {
 			style = style.Underline(true)
+			rowWithCursor = new(int)
+			*rowWithCursor = len(styledRunes)
 		}
 
 		currentRow = append(currentRow, style.Render(string(c)))
@@ -291,6 +295,39 @@ func (m model) View() string {
 		styledRunes = append(styledRunes, currentRow)
 	}
 
+	return styledRunes, rowWithCursor
+}
+
+func getRenderingRows(m model) [][]string {
+	styledRunes, rowWithCursor := getStyledRows(m)
+	rowsToRender := make([][]string, 0)
+
+	if rowWithCursor != nil {
+		row := *rowWithCursor
+
+		if row > 0 {
+			rowsToRender = append(rowsToRender, styledRunes[row-1])
+		}
+
+		rowsToRender = append(rowsToRender, styledRunes[row])
+
+		if row+1 < len(styledRunes) {
+			rowsToRender = append(rowsToRender, styledRunes[row+1])
+		}
+	} else {
+		for i := 3; i >= 1; i-- {
+			if len(styledRunes)-i >= 0 {
+				rowsToRender = append(rowsToRender, styledRunes[len(styledRunes)-i])
+			}
+		}
+	}
+
+	return rowsToRender
+}
+
+func (m model) View() string {
+	rowsToRender := getRenderingRows(m)
+
 	header := func() string {
 		addition := ""
 
@@ -308,7 +345,7 @@ func (m model) View() string {
 	mainPart := func() string {
 		result := ""
 
-		for _, line := range styledRunes {
+		for _, line := range rowsToRender {
 			result = lipgloss.JoinVertical(
 				lipgloss.Top,
 				result,
