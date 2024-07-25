@@ -156,13 +156,20 @@ func GetQuote(path string) string {
 		words = append(words, scanner.Text())
 	}
 
-	words = Filter(words, func(w string) bool {
-		return !strings.Contains(w, "'") && 5 <= len(w) && len(w) <= 6
-	})
+	containsOnlyLowercaseLatins := func(word string) bool {
+		for _, c := range word {
+			if !('a' <= c && c <= 'z') {
+				return false
+			}
+		}
 
-	for i := 0; i < len(words); i++ {
-		words[i] = strings.ToLower(words[i])
+		return true
 	}
+
+	words = Filter(words, func(w string) bool {
+		return !strings.Contains(w, "'") && 5 <= len(w) && len(w) <= 6 &&
+			containsOnlyLowercaseLatins(w)
+	})
 
 	shuffle(words)
 
