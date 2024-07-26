@@ -40,5 +40,7 @@ The application supports following flags:
 - `-t, --timeout int`. Default is 30. Specifies the timeout for timer. If set to 0, the time is unlimited and timer is replaced with stopwatch.
 - `-w, --wrap int`. Default is 10. Specifies the amount of words in one line.
 - `-i, --input string`. Default is `/usr/share/dict/american-english`. Specifies the word collection.
+- `    --minlen int`. Default is 5. Specifies the minimum length of words.
+- `    --maxlen int`. Default is 6. Specifies the maximum length of words.
 
 If you have created your own word collection, just put the path to it into the -i (--input) flag.
