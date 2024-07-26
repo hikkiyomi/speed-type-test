@@ -142,7 +142,7 @@ func shuffle(words []string) {
 	})
 }
 
-func GetQuote(path string) string {
+func GetQuote(path string, minLength int, maxLength int) string {
 	file, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -167,7 +167,9 @@ func GetQuote(path string) string {
 	}
 
 	words = Filter(words, func(w string) bool {
-		return !strings.Contains(w, "'") && 5 <= len(w) && len(w) <= 6 &&
+		return !strings.Contains(w, "'") &&
+			(minLength <= len(w)) &&
+			(maxLength == 0 || len(w) <= maxLength) &&
 			containsOnlyLowercaseLatins(w)
 	})
 
