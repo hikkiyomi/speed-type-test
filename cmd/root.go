@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+
+	stt "github.com/hikkiyomi/speed-type-test/internal"
 )
 
 const (
@@ -23,7 +25,27 @@ var rootCmd = &cobra.Command{
 		}
 		defer f.Close()
 
-		if _, err := tea.NewProgram().Run(); err != nil {
+		timeoutInSeconds, err := cmd.Flags().GetInt("timeout")
+		if err != nil {
+			log.Fatal("Couldn't get the 'timeout' flag.")
+		}
+
+		wrapWords, err := cmd.Flags().GetInt("wrap")
+		if err != nil {
+			log.Fatal("Couldn't get the 'wrap' flag.")
+		}
+
+		input, err := cmd.Flags().GetString("input")
+		if err != nil {
+			log.Fatal("Couldn't get the 'input' flag")
+		}
+
+		// A quote is just a space-separated set of random intelligible words.
+		quote := stt.GetQuote(input)
+
+		p := tea.NewProgram(stt.NewModel(quote, timeoutInSeconds, wrapWords), tea.WithAltScreen())
+
+		if _, err := p.Run(); err != nil {
 			log.Fatal(err)
 		}
 	},
@@ -37,5 +59,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().StringP("input", "i", "/usr/share/dict/american-english", "path for word collection to train on.")
+	rootCmd.Flags().IntP("timeout", "t", 30, "specifies the timeout for timer. Put 0 for infinite amount of time.")
+	rootCmd.Flags().IntP("wrap", "w", 10, "specifies the number of words in one line.")
 }
