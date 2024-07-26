@@ -8,20 +8,20 @@ A CLI application for testing your type speed.
 
 - Download Go language.
 
-    For Arch-based distros use pacman: `sudo pacman -S go`
+    For Arch-based distros use pacman: `sudo pacman -S go` \
     For Red Hat-based distros use dnf: `sudo dnf install golang`
 
 - Download any collection of words (or create it by yourself!).
 
     You may use package managers for that as well.
 
-    For Arch-based distros: `sudo pacman -S words`
-    For Red Hat-based distros: `sudo yum install words`
+    For Arch-based distros: `sudo pacman -S words` \
+    For Red Hat-based distros: `sudo yum install words` \
     For Debian and Ubuntu-based distros: `sudo apt-get install wamerican` OR `sudo apt-get install wbritish`
 
     These collections will be located at `/usr/share/dict` directory.
 
-    To create a collection of words by yourself, simply put your desirable words into some file so there is only one word in each line.
+    To create a collection of words by yourself, simply put your desirable words into some file so there is only one word in each line. \
     The example of manually created collection of words is the file "word_collection" in this repository.
 
 - Clone this repository into one of your directories.
