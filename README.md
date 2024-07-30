@@ -2,16 +2,16 @@
 
 A CLI application for testing your type speed.
 
-![Preview](preview.png "Preview")
+![Preview](assets/preview.png "Preview")
 
 ## Installation
 
-- Download Go language.
+- Download Go language. It is necessary for building the application.
 
     For Arch-based distros use pacman: `sudo pacman -S go` \
     For Red Hat-based distros use dnf: `sudo dnf install golang`
 
-- Download any collection of words (or create it by yourself!).
+- Download any collection of words. Or create it by yourself.
 
     You may use package managers for that as well.
 
@@ -19,18 +19,21 @@ A CLI application for testing your type speed.
     For Red Hat-based distros: `sudo yum install words` \
     For Debian and Ubuntu-based distros: `sudo apt-get install wamerican` OR `sudo apt-get install wbritish`
 
-    These collections will be located at `/usr/share/dict` directory.
+    These collections will be located at `/usr/share/dict/` directory.
 
     To create a collection of words by yourself, simply put your desirable words into some file so there is only one word in each line. \
-    The example of manually created collection of words is the file "word_collection" in this repository.
+    The example of manually created collection of words is the file [assets/word_collection](./assets/word_collection) in this repository.
 
 - Clone this repository into one of your directories.
 
-- Make sure that you have the non-empty env variable GOBIN.
-If not, set it to whatever path you want (e.g. `$HOME/go/bin/`) and put $GOBIN into $PATH.
-Also make sure that directory $GOBIN exists.
+    Run `git clone git@github.com:hikkiyomi/speed-type-test.git`
 
-- Run `go build -o stt . && mv stt $GOBIN` from the directory where this repository is located.
+- To install the project, simply run `make` from the directory of cloned repository.
+
+    You can also install the project with script [scripts/install.sh](./scripts/install.sh) with providing your custom installation path. \
+    Run `./scripts/install.sh . <your-path-here>` from the directory of repository.
+
+- Type `stt` in your terminal and test your typing speed!
 
 ## Usage
 
